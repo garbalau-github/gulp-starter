@@ -1,88 +1,160 @@
+// Main variables and packages
+let {src, dest} = require('gulp');
 let gulp = require('gulp');
-let gulp_sass = require('gulp-sass');
-let browser_sync = require('browser-sync');
-let uglify = require('gulp-uglify');
-let concat = require('gulp-concat');
-let rename = require('gulp-rename');
+
+
+// Added NPM packages
+let browsersync = require('browser-sync').create();
+let fileinclude = require('gulp-file-include');
 let del = require('del');
+let scss = require('gulp-sass');
 let autoprefixer = require('gulp-autoprefixer');
+let group_media = require('gulp-group-css-media-queries');
+let clean_css = require('gulp-clean-css');
+let rename = require('gulp-rename');
+let uglify = require('gulp-uglify-es').default;
+let imagemin = require('gulp-imagemin');
+let webp = require('gulp-webp');
+let webphtml = require('gulp-webp-html');
+let babel = require('gulp-babel');
+let ttf2woff = require('gulp-ttf2woff');
+let ttf2woff2 = require('gulp-ttf2woff2');
 
-gulp.task('clean', async function(){
-    del.sync('dist')
-});
+// Main folders destination
+let project_folder = 'dist';
+let source_folder = '#src';
 
-gulp.task('scss_to_css', function(){
-    return gulp.src('app/scss/**/*.scss')
-        .pipe(gulp_sass({outputStyle: 'compressed'}))
-        .pipe(autoprefixer({
-            overrideBrowserslist: ['last 2 versions']
-        }))
-        .pipe(rename({suffix: '.min'}))
-        .pipe(gulp.dest('app/css'))
-        .pipe(browser_sync.reload({stream: true}))
-});
+// Main paths for files
+let path = {
+    build: {
+        html: `${project_folder}/`,
+        css: `${project_folder}/css/`,
+        js: `${project_folder}/js/`,
+        img: `${project_folder}/img/`,
+        fonts: `${project_folder}/fonts/`,
+    },
+    src: {
+        html: [`${source_folder}/*.html`, `!${source_folder}/_*.html`],
+        css: `${source_folder}/scss/style.scss`,
+        js: `${source_folder}/js/script.js`,
+        img: `${source_folder}/img/**/*.{jpg,png,svg,gif,ico,webp}`,
+        fonts: `${source_folder}/fonts/*.ttf`,
+    },
+    watch: {
+        html: `${source_folder}/**/*.html`,
+        css: `${source_folder}/scss/**/*.scss`,
+        js: `${source_folder}/js/**/*.js`,
+        img: `${source_folder}/img/**/*.{jpg,png,svg,gif,ico,webp}`,
+    },
+    clean: `./${project_folder}/`
+}
 
-gulp.task('css', function(){
-    return gulp.src([
-        'node_modules/normalize.css/normalize.css',
-        'node_modules/slick-carousel/slick/slick.css',
-    ])
-    .pipe(concat('_libs.scss'))
-    .pipe(gulp.dest('app/scss'))
-    .pipe(browser_sync.reload({stream: true}))
-});
+// Work with .html files
+function html () {
+    return src(path.src.html)
+    .pipe(fileinclude())
+    .pipe(webphtml())
+    .pipe(dest(path.build.html))
+    .pipe(browsersync.stream())
+}
 
-gulp.task('html', function(){
-    return gulp.src('app/*.html')
-        .pipe(browser_sync.reload({stream: true}))
-});
-
-gulp.task('script', function(){
-    return gulp.src('app/js/*.js')
-        .pipe(browser_sync.reload({stream: true}))
-});
-
-gulp.task('js', function(){
-    return gulp.src([
-        'node_modules/slick-carousel/slick/slick.js',
-    ])
-    .pipe(concat('libs.min.js'))
+// Work with .js files
+function js () {
+    return src(path.src.js)
+    .pipe(babel({presets: ['@babel/env']}))
+    .pipe(dest(path.build.js))
     .pipe(uglify())
-    .pipe(gulp.dest('app/js'))
-    .pipe(browser_sync.reload({stream: true}))
-});
+    .pipe(rename({extname: `.min.js`}))
+    .pipe(dest(path.build.js))
+    .pipe(browsersync.stream())
+}
 
-gulp.task('browser_sync', function(){
-    browser_sync.init({
-        server: {
-            baseDir: 'app/'
-        }
-    });
-});
+// Work with .css / .scss files
+function css () {
+    return src(path.src.css)
+    .pipe(scss({outputStyle: `expanded`}))
+    .pipe(group_media())
+    .pipe(
+        autoprefixer({
+            overrideBrowserslist: [`last 5 versions`],
+            cascade: true
+        })
+    )
+    .pipe(dest(path.build.css))
+    .pipe(clean_css())
+    .pipe(rename({extname: `.min.css`}))
+    .pipe(dest(path.build.css))
+    .pipe(browsersync.stream())
+}
 
-gulp.task('export', function(){
-  let buildHtml = gulp.src('app/**/*.html')
-    .pipe(gulp.dest('dist'));
+// Work with images
+function images () {
+    return src(path.src.img)
+    .pipe(webp({quality: 70}))
+    .pipe(dest(path.build.img))
+    .pipe(src(path.src.img))
+    .pipe(
+        imagemin({
+            progressive: true,
+            svgoPlugins: [{ removeViewBox: false }],
+            interlaced: true,
+            optimizationLevel: 3
+        })
+    )
+    .pipe(dest(path.build.img))
+    .pipe(browsersync.stream())
+}
 
-  let BuildCss = gulp.src('app/css/**/*.css')
-    .pipe(gulp.dest('dist/css'));
+// Work with fonts
+function fonts () {
+    src(path.src.fonts)
+    .pipe(ttf2woff())
+    .pipe(dest(path.build.fonts))
+    return src(path.src.fonts)
+    .pipe(ttf2woff2())
+    .pipe(dest(path.build.fonts))
+}
 
-  let BuildJs = gulp.src('app/js/**/*.js')
-    .pipe(gulp.dest('dist/js'));
-    
-  let BuildFonts = gulp.src('app/fonts/**/*.*')
-    .pipe(gulp.dest('dist/fonts'));
+// Manual task for gulp fonter [otf]
+gulp.task('otf2ttf', function () {
+    return gulp.src([`${source_folder}/fonts/*.otf`])
+    .pipe(fonter({
+        formats: ['ttf']
+    }))
+    .pipe(dest(`${source_folder}/fonts/`))
+})
 
-  let BuildImg = gulp.src('app/img/**/*.*')
-    .pipe(gulp.dest('dist/img'));   
-});
+// Run the browsersync code
+function browserSync () {
+    browsersync.init({
+        server: { baseDir: `./${project_folder}/` },
+        port: 3000,
+        notify: false
+    })
+}
+// Watch files on change
+function watchFiles () {
+    gulp.watch([path.watch.html], html)
+    gulp.watch([path.watch.css], css)
+    gulp.watch([path.watch.js], js)
+    gulp.watch([path.watch.img], images)
+}
 
-gulp.task('watch', function(){
-    gulp.watch('app/scss/**/*.scss', gulp.parallel('scss_to_css'));
-    gulp.watch('app/*.html', gulp.parallel('html'));
-    gulp.watch('app/js/*.js', gulp.parallel('script'));
-});
+// Cleaner
+function clean () {
+    return del(path.clean);
+}
 
-gulp.task('build', gulp.series('clean', 'export'))
+// Gulp working
+let build = gulp.series(clean, gulp.parallel(js, css, html, images, fonts))
+let watch = gulp.parallel(build, watchFiles, browserSync);
 
-gulp.task('default', gulp.parallel('css', 'scss_to_css', 'script', 'browser_sync', 'watch'));
+// Expose functions
+exports.fonts = fonts;
+exports.images = images;
+exports.js = js;
+exports.css = css;
+exports.html = html;
+exports.build = build;
+exports.watch = watch;
+exports.default = watch;

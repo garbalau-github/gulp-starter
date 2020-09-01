@@ -3,17 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title> Gulp 4 Kit </title>
     <link rel="stylesheet" href="css/style.min.css">
+    <title>Gulp 4</title>
 </head>
 <body>
 
-    <header>
-        This is HTML File
-    </header>
+    @@include('_header.html')
     
-    <script src="js/libs.min.js"></script>
-    <script src="js/main.js"></script>
+    <main class="main">
+        This is Gulp 4 Blueprint!
+    </main>
+
+    @@include('_footer.html')
+
+    <script src="js/script.min.js"></script>
 </body>
 </html>
